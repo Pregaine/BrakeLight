@@ -111,7 +111,7 @@ void PWM_SetDuty( U8 duty_cycle )
 
 void PWM_Init()
 {
-	PWM_SetDuty( 5 );
+	PWM_SetDuty( 20 );
 }
 
 

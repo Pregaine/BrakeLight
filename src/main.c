@@ -7,6 +7,7 @@
 #include "EFM8SB1_UART.h"
 #include "Converter.h"
 
+// #define _DEBUG
 
 // -- Global Function --------------------------------------------------------------
 void Init_Device( void );
@@ -14,9 +15,8 @@ void Init_RAM( void );
 void Init_GPIO( void );
 
 void System_Sleep( void );
-// void Sleep_Process( void );
 
-// void Detect_Brake( void );
+//void Detect_Brake( void );
 void Detect_Brake_2( void );
 void System_Start( void );
 
@@ -67,6 +67,7 @@ void main( void )
 
 	ASI_Modbus_Init();
 	System_Start();
+
 	xl345_status = ADXL345_Initiate();
 
 	PWM_Init();
@@ -74,8 +75,8 @@ void main( void )
 #if 0
 	while( 1 )
 	{
-		// PWM_SetDuty( 35 ); // 160mA
-		// PWM_SetDuty( 47 ); // 200mA
+		// PWM_SetDuty( 30 ); // 17.8mA
+		PWM_SetDuty( 60 ); // 35.9mA
 	}
 #endif
 
@@ -96,12 +97,11 @@ void main( void )
 			ASI.status.light == _LightON ||
 			Hold_Active_Counter > 0 )
 		{
-			PWM_SetDuty( 47 ); // 200mA
+			PWM_SetDuty( 60 );
 		}
 		else
 		{
-			PWM_SetDuty( 35 ); // 150mA
-			// PWM_SetDuty( 2 );
+			PWM_SetDuty( 20 );
 		}
 	}
 }
@@ -111,11 +111,7 @@ void main( void )
 void Init_RAM( void )
 {
 
-	// SYS_SLEEP = Flag_Clr;							// System Sleep Flag
-
 	ExtTime = 0;									// Clear Timer0 Counter
-
-	// Power_State = Flag_Clr;							// Clear Power on Flag
 
 	TX_Ready = 1;                       // Flag showing that UART can transmit
 
@@ -294,8 +290,7 @@ void Detect_Brake( void )
 {
 	U8 i;
 	s16 tmpx = 0, tmpy = 0, tmpz = 0;
-	static u8 cn = 0;
-	static u8 xdata str[ 8 ] = { 0 };
+
 
 	// -- 讀G-Sensor資料 -------------------------------------------------
 	Get_3X(&Gx, &Gy, &Gz);
@@ -343,7 +338,9 @@ void Detect_Brake( void )
 	if( Hold_Active_Counter > 0 )
 		Hold_Active_Counter--;
 
-	#if 1
+	#if 0
+	static u8 cn = 0;
+	static u8 xdata str[ 8 ] = { 0 };
 	cn = cn + 1;
 	U16toStr( cn, str );
 	DBG_Print( str );
@@ -386,6 +383,11 @@ void Detect_Brake_2( void )
 	U8 i;
 	s16 tmpx = 0, tmpy = 0, tmpz = 0, tmpdz = 0;
 
+#ifdef _DEBUG
+	static u8 cn = 0;
+	static u8 xdata str[ 8 ] = { 0 };
+#endif
+
 	// -- 讀G-Sensor資料 -------------------------------------------------
 	Get_3X(&Gx, &Gy, &Gz);
 
@@ -417,7 +419,8 @@ void Detect_Brake_2( void )
 	{
 		NOP();
 	}
-	else if( ( tmpz < 50 ) && ( tmpy >= 267 ) && ( tmpdz <= -2 ) )
+	else if( ( tmpz < 50 ) && ( tmpdz <= -2 ) &&
+			 ( ( tmpy >= 267 ) || ( tmpy <= -245 ) ) )
 	{
 		Hold_Active_Counter = COUNTER_2s;
 	}
@@ -426,9 +429,7 @@ void Detect_Brake_2( void )
 	if( Hold_Active_Counter > 0 )
 		Hold_Active_Counter--;
 
-	#if 0
-	static u8 cn = 0;
-	static u8 xdata str[ 8 ] = { 0 };
+#ifdef _DEBUG
 	cn = cn + 1;
 	U16toStr( cn, str );
 	DBG_Print( str );
