@@ -80,13 +80,15 @@ void ASI_Modbus_Init()
 	// u8 code response[] = { 0x03, 0x10, 0x00, 0x00, 0x00, 0x02, 0x04, 0x00, 0x00, 0x00, 0x00, 0xF8, 0x17 };
 	// u8 code response[] = { 0x03, 0x03, 0x04, 0x00, 0x01, 0x00, 0x00, 0x88, 0x33 };
 	// u8 code response[] = { 0x03, 0x10, 0x00, 0x01, 0x00, 0x01, 0x51, 0xeb };
+	// u8 code response[] = { 0x03, 0x10, 0x00, 0x00, 0x00, 0x02, 0x04, 0x00, 0x00, 0x00, 0x01, 0x39, 0xD7 };
 	u8 code response[] = { 0x03, 0x10, 0x00, 0x00, 0x00, 0x02, 0x40, 0x2a };
 	u16 result = 0xFF;
 	result = ASI_Decode_CRC( response, sizeof( response ) - 2, 0xFFFF );
 #endif
 
-	ASI.status.brake = _BrakeLightOFF;
-	ASI.status.light = _LightOFF;
+	ASI.status.brake      = _BrakeLightOFF;
+	ASI.status.light 	  = _LightON;
+	ASI.status.brake_save = _BrakeLightOFF;
 
 	/* Begin */
 	ReadHoldReg_Request.SlaveID  = _SMART_LIGHT_SLAVE_ID;
@@ -354,7 +356,6 @@ void ASI_Modbus_Response( void )
 
 				ASI.status.light = ( ( ( ( U16 ) WriteMultipleReg_Request.NumOfDataBytePtr[ 0 ] & 0x00FF ) << 8 ) |
 								     WriteMultipleReg_Request.NumOfDataBytePtr[ 1 ]  );
-
 			}
 			else if( WriteMultipleReg_Request.NumOfReg.word == 2 )
 			{
@@ -364,6 +365,8 @@ void ASI_Modbus_Response( void )
 				ASI.status.brake = ( ( ( ( U16 ) WriteMultipleReg_Request.NumOfDataBytePtr[ 2 ] & 0x00FF ) << 8 ) |
 									   WriteMultipleReg_Request.NumOfDataBytePtr[ 3 ]  );
 
+			    // 重要
+				ASI.status.brake_save = ASI.status.brake;
 			}
 		}
 		else if( WriteMultipleReg_Request.StartAdd.word == _BrakeLightAdd )
@@ -372,6 +375,9 @@ void ASI_Modbus_Response( void )
 			{
 				ASI.status.brake = ( ( ( ( U16 ) WriteMultipleReg_Request.NumOfDataBytePtr[ 0 ] & 0x00FF ) << 8 ) |
 				    				             WriteMultipleReg_Request.NumOfDataBytePtr[ 1 ]  );
+
+			    // 重要
+				ASI.status.brake_save = ASI.status.brake;
 			}
 			else if( WriteMultipleReg_Request.NumOfReg.word == 2 )
 			{

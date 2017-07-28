@@ -19,20 +19,12 @@
 #define _BrakeLightON  0x0000
 #define _BrakeLightOFF 0x0001
 
-typedef enum
-{
-	_LightAdd = 0x00,
+#define _LightAdd 		0x00
+#define	_BrakeLightAdd 	0x01
 
-	_BrakeLightAdd = 0x01
+#define _INVALID_ADD 		0x02
+#define	_INVALID_NUM_OF_REG 0x03
 
-}_SmartLightAdde;
-	
-typedef enum
-{
-	_INVALID_ADD = 0x02,
-	_INVALID_NUM_OF_REG = 0x03
-
-}_ExceptionCode;
 
 typedef struct
 {
@@ -91,7 +83,7 @@ typedef struct
 {
 	unsigned char SlaveID;
 	unsigned char ErrCode;
-	_ExceptionCode ExcepCode;
+	unsigned char ExcepCode;
 	_UU16 Crc;
 	
 }_WriteMultipleReg_ResponseErr_Stc;
@@ -100,6 +92,7 @@ typedef struct
 {
 	u16 light;
 	u16 brake;
+	u16 brake_save;
 	
 }_Reg;
 

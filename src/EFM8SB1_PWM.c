@@ -109,13 +109,10 @@ void PWM_SetDuty( U8 duty_cycle )
 	PWM_L_TIME = PCA_TIMEOUT_01 * ( duty_cycle );
 }
 
-void PWM_Init()
+void PWM_Init( )
 {
 	PWM_SetDuty( 20 );
 }
-
-
-
 
 //-----------------------------------------------------------------------------
 // End Of File
