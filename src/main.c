@@ -7,7 +7,7 @@
 #include "EFM8SB1_UART.h"
 #include "Converter.h"
 
-#define _DEBUG 0
+#define _DEBUG 1
 
 // -- Global Function --------------------------------------------------------------
 void Init_Device( void );
@@ -19,6 +19,8 @@ void Init_GPIO( void );
 // void Detect_Brake_3( void );
 void Detect_Brake_4( void );
 void System_Start( void );
+void DBG_Print( S8 *text );
+
 
 //-- Global Parameter ----------------------------------------------------------
 // S16 xdata Gx_DET_BUF[ G_BUF_SIZE ];
@@ -59,6 +61,8 @@ void main( void )
 
 	PWM_Init();
 
+	DBG_Print( "Power On" );
+
 #if 0
 	while( 1 )
 	{
@@ -85,12 +89,12 @@ void main( void )
 			
 		if( ASI.status.brake == _BrakeLightON )
 		{
-			 PWM_SetDuty( 50 );
+			// PWM_SetDuty( 50 );
 			// PWM = 1;
 		}
 		else
 		{
-			PWM_SetDuty( 20 );
+			// PWM_SetDuty( 20 );
 			// PWM = 0;
 		}
 	}
@@ -252,7 +256,7 @@ void Detect_Brake_4( void )
 
 	U16toStr( Hold_Active_Counter, str );
 	DBG_Print( str );
-	DBG_Print( "\n" );
+	DBG_Print( "\r\n" );
 	#endif
 
 }

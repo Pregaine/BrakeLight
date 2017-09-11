@@ -87,7 +87,7 @@ void ASI_Modbus_Init()
 #endif
 
 	ASI.status.brake      = _BrakeLightOFF;
-	ASI.status.light 	  = _LightON;
+	ASI.status.light 	  = _LightOFF;
 	ASI.status.brake_save = _BrakeLightOFF;
 
 	/* Begin */
