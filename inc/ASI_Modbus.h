@@ -3,6 +3,13 @@
 
 #include"Typedef.h"
 
+#define _LightAdd 		    0x0000
+#define	_BrakeLightAdd 	    0x0001
+#define _GSensorAdd         0x0002
+#define _DefaultLightAdd    0x0003
+#define _GSensorSensitiity  0x0004
+#define _EndAdd             0x0005
+
 #define _ASI_CNOTROL_SLAVE_ID 	1
 #define _SMART_BMS_SLAVE_ID		2
 #define _SMART_LIGHT_SLAVE_ID 	3
@@ -13,17 +20,21 @@
 #define _ErrCode_ReadHoldReg 		0x83
 #define _ErrCode_WriteMultipleReg	0x90
 
-#define _LightON  0x0000
-#define _LightOFF 0x0001
-
-#define _BrakeLightON  0x0000
-#define _BrakeLightOFF 0x0001
-
-#define _LightAdd 		0x00
-#define	_BrakeLightAdd 	0x01
-
+// Error Responses Exception Code
 #define _INVALID_ADD 		0x02
 #define	_INVALID_NUM_OF_REG 0x03
+
+#define _LightON            0x01
+#define _LightOFF           0x00
+
+#define _BrakeLightON       0x01
+#define _BrakeLightOFF      0x00
+
+#define _GSensorIsON        0x01
+#define _GSensorIsOff       0x00
+
+#define _PoweredUp_TurnOn   0x01
+#define _PoweredUp_TurnOff  0x00
 
 
 typedef struct
@@ -92,7 +103,9 @@ typedef struct
 {
 	u16 light;
 	u16 brake;
-	u16 brake_save;
+	u16 G_Sensor;
+	u16 default_light;          //  saved to flash
+	u16 G_Sensor_Sensitiity;    //  saved to flash
 	
 }_Reg;
 

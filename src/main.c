@@ -7,7 +7,7 @@
 #include "EFM8SB1_UART.h"
 #include "Converter.h"
 
-#define _DEBUG 1
+#define _DEBUG 0
 
 // -- Global Function --------------------------------------------------------------
 void Init_Device( void );
@@ -30,8 +30,6 @@ S16 xdata Gz_DET_BUF[ G_BUF_SIZE ];
 S16 Gz_lin_Avage[ 8 ];
 S16 Gx, Gy, Gz;
 
-// U8 xdata FW_Verison[ 11 ] _at_ 0x0000;
-
 U8 Hold_Active_Counter = 0;
 U8 ExtTime;
 u8 Ext50msec;
@@ -50,31 +48,26 @@ void main( void )
 {
 	u8 xl345_status = _FAIL;
 
-	Init_Device();						// HW Device Initial
-	Init_GPIO();						// Initial GPIO
-	Init_RAM();
+	Init_Device( );						// HW Device Initial
+	Init_GPIO( );						// Initial GPIO
+	Init_RAM( );
 
-	ASI_Modbus_Init();
-	System_Start();
+	ASI_Modbus_Init( );
+	System_Start( );
 
 	xl345_status = ADXL345_Initiate();
 
 	PWM_Init();
 
-	DBG_Print( "Power On" );
-
-#if 0
-	while( 1 )
-	{
-		 ASI.status.light = _LightON;
-		PWM_SetDuty( 20 ); // 17.8mA
-		// PWM_SetDuty( 60 ); // 35.9mA
-	}
-#endif
+    #if( _DEBUG )
+	DBG_Print( "Power On\r\n" );
+    #endif
+    
+	// PWM_SetDuty( 20 ); // 17.8mA
+	// PWM_SetDuty( 60 ); // 35.9mA
 
 	while( 1 )
 	{
-
 		if( ASI_Modbus_Decode( ) )
 			ASI_Modbus_Response( );
 
@@ -82,20 +75,16 @@ void main( void )
 		{
 			Ext50msec = Flag_Clr;
 
-			Detect_Brake_4();
+			Detect_Brake_4( );
 		}
-
-		ASI.status.brake = ( Hold_Active_Counter > 0 ) ?_BrakeLightON :ASI.status.brake_save;
-			
+		
 		if( ASI.status.brake == _BrakeLightON )
 		{
-			// PWM_SetDuty( 50 );
-			// PWM = 1;
+			PWM_SetDuty( 50 );
 		}
-		else
+		else if( ASI.status.light == _LightON )
 		{
-			// PWM_SetDuty( 20 );
-			// PWM = 0;
+			PWM_SetDuty( 20 );
 		}
 	}
 }
@@ -193,6 +182,7 @@ void Detect_Brake_4( void )
 {
 	s16 avage_z = 0, tmpz = 0;
 	u8 i;
+	s8 val = 0 - ( ASI.status.G_Sensor_Sensitiity );
 
 #if _DEBUG
 	static u8 cn = 0;
@@ -201,7 +191,15 @@ void Detect_Brake_4( void )
 
 	// -- 讀G-Sensor資料 -------------------------------------------------
 	Get_3X( &Gx, &Gy, &Gz );
+    
+    if( ASI.status.G_Sensor == _GSensorIsOff )
+    {
+        Hold_Active_Counter = 0;
+        return;
+    }
 
+    ASI.status.brake = ( Hold_Active_Counter > 0 ) ?_BrakeLightON :_BrakeLightOFF;
+    
 	for( i = 7; i > 0; i -- )
 	{
 		Gz_DET_BUF[ i ] = Gz_DET_BUF[ i - 1 ];
@@ -231,10 +229,16 @@ void Detect_Brake_4( void )
 	{
 		Hold_Active_Counter--;
 	}
-	else if( ( tmpz < -9 ) && ( Gz_lin_Avage[ 0 ] < -25 ) && ( Gy > 265 ) )
+	//else if( ( tmpz < -9 ) && ( Gz_lin_Avage[ 0 ] < -( 25 ) ) && ( Gy > 265 ) )
+	else if( ( tmpz < val ) && 
+	         ( Gy > 265 )   &&
+	         ( Gz_lin_Avage[ 0 ] < ( -25 ) ) )
+	         
 	{
 		Hold_Active_Counter = COUNTER_2s;
 	}
+
+    // _END:
 
 	#if _DEBUG
 	cn = cn + 1;
@@ -246,11 +250,11 @@ void Detect_Brake_4( void )
 	DBG_Print( str );
 	DBG_Print( "," );
 
-	S16toStr( Gz, str );
+	S16toStr( tmpz, str );
 	DBG_Print( str );
 	DBG_Print( "," );
 
-	S16toStr( tmpz, str );
+	S16toStr( Gz_lin_Avage[ 0 ], str );
 	DBG_Print( str );
 	DBG_Print( "," );
 
@@ -308,7 +312,8 @@ SI_INTERRUPT (PCA0_ISR, PCA0_IRQn)
 		PCA0CPL0 = ( Next_Compare_Value & 0x00FF );
 		PCA0CPH0 = ( Next_Compare_Value & 0xFF00 )>>8;
 
-		PWM = ( ASI.status.light == _LightON ) ?( ~PWM ) :( PWM_OFF );
+		PWM = ( ( ASI.status.light == _LightON ) || 
+		        ( ASI.status.brake == _BrakeLightON ) ) ?( ~PWM ) :( PWM_OFF );
 
 		if( PWM == PWM_ON )
 		{

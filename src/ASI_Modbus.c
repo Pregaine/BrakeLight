@@ -2,7 +2,7 @@
 #include "EFM8SB1_UART.h"
 #include "Gdefine.h"
 
-#define _MAX_BUF_SIZE 10
+#define _MAX_BUF_SIZE 20
 
 _ReadHoldReg_Request_Stc 	 xdata ReadHoldReg_Request;
 _ReadHoldReg_Response_Stc 	 xdata ReadHoldReg_Response;
@@ -14,6 +14,8 @@ _WriteMultipleReg_ResponseErr_Stc xdata WriteMultipleReg_Err;
 
 u8 ASI_buf[ _MAX_BUF_SIZE ] = { 0 };
 u8 ASI_cmd = 0;
+
+U8 xdata FW_SAVE[ 4 ] _at_ 0x0001;
 
 _ASI_Stc xdata ASI;
 
@@ -75,6 +77,8 @@ void ASI_Modbus_Init()
 {
 	u8 i;
 
+	u16 val = 0;
+
 #if 0
 	// u8 code response[] = { 0x03, 0x03, 0x04, 0x00, 0x01, 0x00, 0x01, 0x49, 0xf3 };
 	// u8 code response[] = { 0x03, 0x10, 0x00, 0x00, 0x00, 0x02, 0x04, 0x00, 0x00, 0x00, 0x00, 0xF8, 0x17 };
@@ -86,15 +90,30 @@ void ASI_Modbus_Init()
 	result = ASI_Decode_CRC( response, sizeof( response ) - 2, 0xFFFF );
 #endif
 
-	ASI.status.brake      = _BrakeLightOFF;
-	ASI.status.light 	  = _LightOFF;
-	ASI.status.brake_save = _BrakeLightOFF;
+	ASI.status.brake    = _BrakeLightOFF;               // Reg 1
+	ASI.status.G_Sensor = _GSensorIsON;                 // Reg 2
+
+	// ASI.status.default_light = _PoweredUp_TurnOn;    // Reg 3
+	
+    val = ( ( u16 )( FW_SAVE[ 0 ] & 0x00FF ) << 8 ) | FW_SAVE[ 1 ];
+
+    ASI.status.default_light = ( val == _PoweredUp_TurnOn ) ?_PoweredUp_TurnOn :_PoweredUp_TurnOff;
+    // -------------------------------------
+	
+	ASI.status.light = ASI.status.default_light;        // Reg 0
+
+	// val = ( ( u16 )( FW_SAVE[ 2 ] & 0x00FF ) << 8 ) | FW_SAVE[ 3 ];
+    // ASI.status.G_Sensor_Sensitiity = ( val > 100 || val < 0 ) ?9 :val;
+
+    ASI.status.G_Sensor_Sensitiity = 100;
+    // ------------------------------------------
+
 
 	/* Begin */
 	ReadHoldReg_Request.SlaveID  = _SMART_LIGHT_SLAVE_ID;
 	ReadHoldReg_Request.FunCode  = _Cmd_ReadHoldReg;
 	ReadHoldReg_Request.StartAdd.word = 0x0000;
-	ReadHoldReg_Request.NumOfReg.word = 0x0002;
+	ReadHoldReg_Request.NumOfReg.word = 0x0005;
 
 	// ReadHoldReg_Request.Crc.word 	  = 0xC5E9;
 	ReadHoldReg_Request.Crc.word = ModRTU_CRC( &ReadHoldReg_Request.SlaveID, 6 );
@@ -131,14 +150,20 @@ void ASI_Modbus_Init()
 	WriteMultipleReg_Request.SlaveID  		= _SMART_LIGHT_SLAVE_ID;
 	WriteMultipleReg_Request.FunCode  		= _Cmd_WriteMultipleReg;
 	WriteMultipleReg_Request.StartAdd.word 	= 0x0000;
-	WriteMultipleReg_Request.NumOfReg.word 	= 0x0002;	// 有幾個Reg需寫入
-	WriteMultipleReg_Request.NumOfDataByte  = 0x04;     // 有幾個Byte需寫入, 1 Reg = 2 Byte
+	WriteMultipleReg_Request.NumOfReg.word 	= 0x0005;	// 有幾個Reg需寫入
+	WriteMultipleReg_Request.NumOfDataByte  = 10;       // 有幾個Byte需寫入, 1 Reg = 2 Byte
 	WriteMultipleReg_Request.NumOfDataBytePtr = ASI_buf; 
 	
-	WriteMultipleReg_Request.NumOfDataBytePtr[ 0 ] = ( ASI.status.light & 0xFF00 ) >> 8;
-	WriteMultipleReg_Request.NumOfDataBytePtr[ 1 ] = ( ASI.status.light & 0x00FF );
-	WriteMultipleReg_Request.NumOfDataBytePtr[ 2 ] = ( ASI.status.brake & 0xFF00 ) >> 8;
-	WriteMultipleReg_Request.NumOfDataBytePtr[ 3 ] = ( ASI.status.brake & 0x00FF );
+	WriteMultipleReg_Request.NumOfDataBytePtr[ 0 ] = 0x00; // ( ASI.status.light & 0xFF00 ) >> 8;
+	WriteMultipleReg_Request.NumOfDataBytePtr[ 1 ] = 0x00; // ( ASI.status.light & 0x00FF );
+	WriteMultipleReg_Request.NumOfDataBytePtr[ 2 ] = 0x00; // ( ASI.status.brake & 0xFF00 ) >> 8;
+	WriteMultipleReg_Request.NumOfDataBytePtr[ 3 ] = 0x00; // ( ASI.status.brake & 0x00FF );
+	WriteMultipleReg_Request.NumOfDataBytePtr[ 4 ] = 0x00; // ( ASI.status.G_Sensor & 0xFF00 ) >> 8;
+	WriteMultipleReg_Request.NumOfDataBytePtr[ 5 ] = 0x01; // ( ASI.status.G_Sensor & 0x00FF );
+	WriteMultipleReg_Request.NumOfDataBytePtr[ 6 ] = 0x00; // ( ASI.status.default_light & 0xFF00 ) >> 8;
+	WriteMultipleReg_Request.NumOfDataBytePtr[ 7 ] = 0x01; // ( ASI.status.default_light & 0x00FF );
+	WriteMultipleReg_Request.NumOfDataBytePtr[ 8 ] = 0x00; // ( ASI.status.G_Sensor_Sensitiity & 0xFF00 ) >> 8;
+	WriteMultipleReg_Request.NumOfDataBytePtr[ 9 ] = 100;  // ( ASI.status.G_Sensor_Sensitiity & 0x00FF );
 
 	WriteMultipleReg_Request.Crc.word = ASI_Decode_CRC( &WriteMultipleReg_Request.SlaveID,
 		                                                7,
@@ -167,6 +192,18 @@ void ASI_Modbus_Init()
 	// Erase ASI_buf
 	for( i = 0; i < _MAX_BUF_SIZE; i ++ )
 		ASI_buf[ i ] = 0;
+}
+
+void ASI_SaveFlash( void )
+{    
+    if( ASI.status.G_Sensor_Sensitiity > 100 )
+        ASI.status.G_Sensor_Sensitiity = 100;
+
+    FW_SAVE[ 0 ] = ASI.status.default_light >> 8;
+    FW_SAVE[ 1 ] = ASI.status.default_light & 0x00FF;
+
+    FW_SAVE[ 2 ] = ASI.status.G_Sensor_Sensitiity >> 8;
+    FW_SAVE[ 3 ] = ASI.status.G_Sensor_Sensitiity & 0x00FF;
 }
 
 U8 ASI_Modbus_Decode(void)
@@ -329,147 +366,118 @@ U8 ASI_Modbus_Decode(void)
 }
 
 
+void ASI_WriteMultipleReg( void )
+{
+    u8 i;
+    u16 *ptrarray[ ] = { &ASI.status.light, 
+                         &ASI.status.brake, 
+                         &ASI.status.G_Sensor,
+                         &ASI.status.default_light,
+                         &ASI.status.G_Sensor_Sensitiity };
+
+    u8 addr = WriteMultipleReg_Request.StartAdd.word;
+    u8 len = WriteMultipleReg_Request.NumOfReg.word;
+
+    if( addr > _EndAdd )
+	{
+    	WriteMultipleReg_Err.ExcepCode = _INVALID_ADD;
+    	WriteMultipleReg_Err.Crc.word  = ModRTU_CRC( &WriteMultipleReg_Err.SlaveID, 3 );
+    	UartWrite( &WriteMultipleReg_Err.SlaveID, 5 );
+    	return;
+	}
+
+    if( ( addr + len ) > _EndAdd || ( len == 0 ) )
+    {
+        WriteMultipleReg_Err.ExcepCode = _INVALID_NUM_OF_REG;
+		WriteMultipleReg_Err.Crc.word  = ModRTU_CRC( &WriteMultipleReg_Err.SlaveID, 3 );
+		UartWrite( &WriteMultipleReg_Err.SlaveID, 5 );
+		return;
+    }
+    // ----------------------------------------
+
+    for( i = 0; i < len ; i ++ )
+    {
+        *ptrarray[ addr + i ] = ( ( ( ( U16 ) WriteMultipleReg_Request.NumOfDataBytePtr[ i << 1 ] & 0x00FF ) << 8 ) |
+						                      WriteMultipleReg_Request.NumOfDataBytePtr[ ( i << 1 ) + 1 ]  );
+
+    }
+
+    ASI_SaveFlash( );
+
+	WriteMultipleReg_Response.StartAdd.word    = WriteMultipleReg_Request.StartAdd.word;
+	WriteMultipleReg_Response.NumberOfReg.word = WriteMultipleReg_Request.NumOfReg.word;
+	WriteMultipleReg_Response.Crc.word         = ModRTU_CRC( &WriteMultipleReg_Response.SlaveID, 6 );
+
+	UartWrite( &WriteMultipleReg_Response.SlaveID, 8 );
+}
+
+void ASI_ReadHoldReg( void )
+{
+    u8 addr = ReadHoldReg_Request.StartAdd.word;
+    u8 len  = ReadHoldReg_Request.NumOfReg.word;
+
+    u8 i;
+    u16 *ptrarray[ ] = { &ASI.status.light, 
+                         &ASI.status.brake, 
+                         &ASI.status.G_Sensor,
+                         &ASI.status.default_light,
+                         &ASI.status.G_Sensor_Sensitiity };
+
+    // Fault Address
+    if( addr > _EndAdd )
+    {
+        ReadHoldReg_Err.ExcepCode = _INVALID_ADD;
+        ReadHoldReg_Err.Crc.word  = ModRTU_CRC( &ReadHoldReg_Err.SlaveID, 3 );
+        UartWrite( &ReadHoldReg_Err.SlaveID, 5 );
+        return;
+    }
+    
+    if( ( addr + len ) > ( _EndAdd ) || ( len == 0 ) )
+    {
+        ReadHoldReg_Err.ExcepCode = _INVALID_NUM_OF_REG;
+        ReadHoldReg_Err.Crc.word  = ModRTU_CRC( &ReadHoldReg_Err.SlaveID, 3 );
+        UartWrite( &ReadHoldReg_Err.SlaveID, 5 );
+        return;
+    }
+    
+    /*
+    for( i = 0; i < len; i ++ )
+    {
+        ReadHoldReg_Response.NumOfRegPtr[ i << 1 ]         = ( *ptrarray[ i ] & 0xFF00 ) >> 8;
+        ReadHoldReg_Response.NumOfRegPtr[ ( i << 1 ) + 1 ] = ( *ptrarray[ i ] & 0x00FF );
+    }
+    */
+
+    for( i = 0; i < ( len + 4 ); i += 2 )
+    {
+    	ASI_buf[ i + 3 ] = ( *ptrarray[ i >> 1 ] & 0xFF00 ) >> 8;
+		ASI_buf[ i + 4 ] = ( *ptrarray[ i >> 1 ] & 0x00FF );
+    }
+
+    ReadHoldReg_Response.NumOfDataByte = ( ReadHoldReg_Request.NumOfReg.word << 1 );
+                    
+    ASI_buf[ 0 ] = ReadHoldReg_Response.SlaveID;
+    ASI_buf[ 1 ] = ReadHoldReg_Response.FunCode;
+    ASI_buf[ 2 ] = ReadHoldReg_Response.NumOfDataByte;
+
+    ReadHoldReg_Response.Crc.word = ModRTU_CRC( ASI_buf, 3 + ReadHoldReg_Response.NumOfDataByte );
+
+    ASI_buf[ 3 + ReadHoldReg_Response.NumOfDataByte ] = ReadHoldReg_Response.Crc.byte[ 0 ];
+    ASI_buf[ 4 + ReadHoldReg_Response.NumOfDataByte ] = ReadHoldReg_Response.Crc.byte[ 1 ];
+
+    UartWrite( ASI_buf, 5 + ReadHoldReg_Response.NumOfDataByte );
+}
+
 void ASI_Modbus_Response( void )
 {
+
 	if( ASI_cmd == _Cmd_WriteMultipleReg  )
 	{
-		if( WriteMultipleReg_Request.StartAdd.word > _BrakeLightAdd )
-		{
-			WriteMultipleReg_Err.ExcepCode = _INVALID_ADD;
-			WriteMultipleReg_Err.Crc.word  = ModRTU_CRC( &WriteMultipleReg_Err.SlaveID, 3 );
-			UartWrite( &WriteMultipleReg_Err.SlaveID, 5 );
-			return;
-		}
-
-		if( WriteMultipleReg_Request.NumOfReg.word > 2 || WriteMultipleReg_Request.NumOfReg.word == 0 )
-		{
-			WriteMultipleReg_Err.ExcepCode = _INVALID_NUM_OF_REG;
-			WriteMultipleReg_Err.Crc.word  = ModRTU_CRC( &WriteMultipleReg_Err.SlaveID, 3 );
-			UartWrite( &WriteMultipleReg_Err.SlaveID, 5 );
-			return;
-		}
-
-		if( WriteMultipleReg_Request.StartAdd.word == _LightAdd )
-		{
-			if( WriteMultipleReg_Request.NumOfReg.word == 1 )
-			{
-
-				ASI.status.light = ( ( ( ( U16 ) WriteMultipleReg_Request.NumOfDataBytePtr[ 0 ] & 0x00FF ) << 8 ) |
-								     WriteMultipleReg_Request.NumOfDataBytePtr[ 1 ]  );
-			}
-			else if( WriteMultipleReg_Request.NumOfReg.word == 2 )
-			{
-				ASI.status.light = ( ( ( ( U16 ) WriteMultipleReg_Request.NumOfDataBytePtr[ 0 ] & 0x00FF ) << 8 ) |
-							           WriteMultipleReg_Request.NumOfDataBytePtr[ 1 ]  );
-
-				ASI.status.brake = ( ( ( ( U16 ) WriteMultipleReg_Request.NumOfDataBytePtr[ 2 ] & 0x00FF ) << 8 ) |
-									   WriteMultipleReg_Request.NumOfDataBytePtr[ 3 ]  );
-
-			    // 重要
-				ASI.status.brake_save = ASI.status.brake;
-			}
-		}
-		else if( WriteMultipleReg_Request.StartAdd.word == _BrakeLightAdd )
-		{
-			if( WriteMultipleReg_Request.NumOfReg.word == 1 )
-			{
-				ASI.status.brake = ( ( ( ( U16 ) WriteMultipleReg_Request.NumOfDataBytePtr[ 0 ] & 0x00FF ) << 8 ) |
-				    				             WriteMultipleReg_Request.NumOfDataBytePtr[ 1 ]  );
-
-			    // 重要
-				ASI.status.brake_save = ASI.status.brake;
-			}
-			else if( WriteMultipleReg_Request.NumOfReg.word == 2 )
-			{
-				// Fail Num Of Reg
-				WriteMultipleReg_Err.ExcepCode = _INVALID_NUM_OF_REG;
-				WriteMultipleReg_Err.Crc.word  = ModRTU_CRC( &WriteMultipleReg_Err.SlaveID, 3 );
-				UartWrite( &WriteMultipleReg_Err.SlaveID, 5 );
-				return;
-			}
-		}
-
-		WriteMultipleReg_Response.StartAdd.word    = WriteMultipleReg_Request.StartAdd.word;
-		WriteMultipleReg_Response.NumberOfReg.word = WriteMultipleReg_Request.NumOfReg.word;
-		WriteMultipleReg_Response.Crc.word         = ModRTU_CRC( &WriteMultipleReg_Response.SlaveID, 6 );
-
-		UartWrite( &WriteMultipleReg_Response.SlaveID, 8 );		
+        ASI_WriteMultipleReg( );
 	}
 	else if( ASI_cmd == _Cmd_ReadHoldReg )
 	{
-		if( ReadHoldReg_Request.StartAdd.word > _BrakeLightAdd )
-		{
-			WriteMultipleReg_Err.ExcepCode = _INVALID_ADD;
-			WriteMultipleReg_Err.Crc.word  = ModRTU_CRC( &WriteMultipleReg_Err.SlaveID, 3 );
-			UartWrite( &WriteMultipleReg_Err.SlaveID, 5 );
-			return;
-		}
-
-		if( ReadHoldReg_Request.NumOfReg.word > 2 || WriteMultipleReg_Request.NumOfReg.word == 0 )
-		{
-			ReadHoldReg_Err.ExcepCode = _INVALID_NUM_OF_REG;
-			ReadHoldReg_Err.Crc.word  = ModRTU_CRC( &ReadHoldReg_Err.SlaveID, 3 );
-			UartWrite( &ReadHoldReg_Err.SlaveID, 5 );
-			return;
-		}
-
-		ReadHoldReg_Response.NumOfDataByte = ( ReadHoldReg_Request.NumOfReg.word << 1 );
-
-		if( ReadHoldReg_Request.StartAdd.word == _LightAdd )
-		{
-			if( ReadHoldReg_Response.NumOfDataByte == 2 )
-			{
-				ReadHoldReg_Response.NumOfRegPtr[ 0 ] = ( ASI.status.light & 0xFF00 ) >> 8;
-				ReadHoldReg_Response.NumOfRegPtr[ 1 ] = ( ASI.status.light & 0x00FF );
-			}
-			else if( ReadHoldReg_Response.NumOfDataByte == 4 )
-			{
-				ReadHoldReg_Response.NumOfRegPtr[ 0 ] = ( ASI.status.light & 0xFF00 ) >> 8;
-				ReadHoldReg_Response.NumOfRegPtr[ 1 ] = ( ASI.status.light & 0x00FF );
-				ReadHoldReg_Response.NumOfRegPtr[ 2 ] = ( ASI.status.brake & 0xFF00 ) >> 8;
-				ReadHoldReg_Response.NumOfRegPtr[ 3 ] = ( ASI.status.brake & 0x00FF );
-			}			
-		}
-		else if( ReadHoldReg_Request.StartAdd.word == _BrakeLightAdd )
-		{
-			if( ReadHoldReg_Response.NumOfDataByte == 2 )
-			{
-				ReadHoldReg_Response.NumOfRegPtr[ 0 ] = ( ASI.status.brake & 0xFF00 ) >> 8;
-				ReadHoldReg_Response.NumOfRegPtr[ 1 ] = ( ASI.status.brake & 0x00FF );
-			}
-			else if( ReadHoldReg_Response.NumOfDataByte == 4 )
-			{
-				// Fail Reg
-				ReadHoldReg_Err.ExcepCode = _INVALID_NUM_OF_REG;
-				ReadHoldReg_Err.Crc.word  = ModRTU_CRC( &ReadHoldReg_Err.SlaveID, 3 );
-				UartWrite( &ReadHoldReg_Err.SlaveID, 5 );
-				return;
-			}
-		}
-
-		if( ReadHoldReg_Response.NumOfDataByte == 2 )
-		{
-			ASI_buf[ 3 ] = ASI_buf[ 0 ];
-			ASI_buf[ 4 ] = ASI_buf[ 1 ];
-		}
-		else if( ReadHoldReg_Response.NumOfDataByte == 4 )
-		{
-			ASI_buf[ 6 ] = ASI_buf[ 3 ];
-			ASI_buf[ 5 ] = ASI_buf[ 2 ];
-			ASI_buf[ 4 ] = ASI_buf[ 1 ];
-			ASI_buf[ 3 ] = ASI_buf[ 0 ];
-		}
-		
-		ASI_buf[ 0 ] = ReadHoldReg_Response.SlaveID;
-		ASI_buf[ 1 ] = ReadHoldReg_Response.FunCode;
-		ASI_buf[ 2 ] = ReadHoldReg_Response.NumOfDataByte;
-
-		ReadHoldReg_Response.Crc.word = ModRTU_CRC( ASI_buf, 3 + ReadHoldReg_Response.NumOfDataByte );
-
-		ASI_buf[ 3 + ReadHoldReg_Response.NumOfDataByte ] = ReadHoldReg_Response.Crc.byte[ 0 ];
-		ASI_buf[ 4 + ReadHoldReg_Response.NumOfDataByte ] = ReadHoldReg_Response.Crc.byte[ 1 ];
-
-		UartWrite( ASI_buf, 5 + ReadHoldReg_Response.NumOfDataByte );
+		ASI_ReadHoldReg( );
 	}
 
 	ASI_cmd = 0;

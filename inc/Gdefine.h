@@ -11,8 +11,6 @@
 #define	PWM_OFF					0				
 
 //-- Light Control define ------------------------------------------------------
-#define	Light_ON				0			// Light Sensor ON
-#define	Light_OFF				1			// Light Sensor OFF
 #define	AUTO_MODE				0xAA		// Cohesion Mode
 #define	DISCHARGE_MODE			0xAB		// Discharge Mode
 #define Light_IDEL				0xAC		// Light idel Mode
