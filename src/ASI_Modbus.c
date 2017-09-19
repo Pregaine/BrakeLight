@@ -1,6 +1,9 @@
 #include "ASI_Modbus.h"
 #include "EFM8SB1_UART.h"
 #include "Gdefine.h"
+#include "EFM8SB1_FlashPrimitives.h"
+#include "EFM8SB1_FlashUtils.h"
+
 
 #define _MAX_BUF_SIZE 20
 
@@ -72,6 +75,26 @@ U16 ASI_Decode_CRC( u8 *buf, u8 len, u16 crc )
 	return crc;
 }
 
+u8 ASI_Read_Flash( void )
+{
+    u8 buf = 0xFF;
+
+    FLASH_Read( &buf, _START_ADDRESS, 1 );
+
+    if( ( buf != _PoweredUp_TurnOn ) && ( buf != _PoweredUp_TurnOff ) )
+    {
+        // Default Light On
+        buf = _PoweredUp_TurnOn;
+    
+        FLASH_PageErase( _START_ADDRESS );
+        
+        FLASH_Write( _START_ADDRESS, &buf, 1 );
+    }
+
+    return buf;
+}
+
+
 
 void ASI_Modbus_Init()
 {
@@ -97,7 +120,9 @@ void ASI_Modbus_Init()
 	
     val = ( ( u16 )( FW_SAVE[ 0 ] & 0x00FF ) << 8 ) | FW_SAVE[ 1 ];
 
-    ASI.status.default_light = ( val == _PoweredUp_TurnOn ) ?_PoweredUp_TurnOn :_PoweredUp_TurnOff;
+    ASI.status.default_light = ASI_Read_Flash( );
+
+    // ( val == _PoweredUp_TurnOn ) ?_PoweredUp_TurnOn :_PoweredUp_TurnOff;
     // -------------------------------------
 	
 	ASI.status.light = ASI.status.default_light;        // Reg 0
@@ -107,7 +132,6 @@ void ASI_Modbus_Init()
 
     ASI.status.G_Sensor_Sensitiity = 100;
     // ------------------------------------------
-
 
 	/* Begin */
 	ReadHoldReg_Request.SlaveID  = _SMART_LIGHT_SLAVE_ID;
@@ -196,14 +220,25 @@ void ASI_Modbus_Init()
 
 void ASI_SaveFlash( void )
 {    
+    u8 buf, val;
+
     if( ASI.status.G_Sensor_Sensitiity > 100 )
         ASI.status.G_Sensor_Sensitiity = 100;
 
-    FW_SAVE[ 0 ] = ASI.status.default_light >> 8;
-    FW_SAVE[ 1 ] = ASI.status.default_light & 0x00FF;
+    buf = ASI.status.default_light & 0x00FF;
 
-    FW_SAVE[ 2 ] = ASI.status.G_Sensor_Sensitiity >> 8;
-    FW_SAVE[ 3 ] = ASI.status.G_Sensor_Sensitiity & 0x00FF;
+    if( buf != _PoweredUp_TurnOn && buf != _PoweredUp_TurnOff )
+        return;
+
+    FLASH_Read( &val, _START_ADDRESS, 1 );
+
+    if( val != buf )
+    {    
+        FLASH_PageErase( _START_ADDRESS );
+        
+        FLASH_Write( _START_ADDRESS, &buf, 1 );
+    } 
+    
 }
 
 U8 ASI_Modbus_Decode(void)
